@@ -1,0 +1,6 @@
+[package]
+name = "observer"
+version = "0.1.0"
+authors = ["49nord GmbH <hello@49nord.de>"]
+
+[dependencies]
