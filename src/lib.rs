@@ -1,4 +1,4 @@
-use std::{collections, rc};
+use std::{collections::HashMap, fmt, rc};
 
 /// Observer reference collection
 ///
@@ -16,7 +16,16 @@ pub struct Observers<E, S> {
     next_id: usize,
     /// Note: Currently there is a `retain` implementation missing for `HashMap`, it is only
     /// for this reason that a HashMap is used.
-    registry: collections::HashMap<usize, rc::Weak<Observer<E, S>>>,
+    registry: HashMap<usize, rc::Weak<Observer<E, S>>>,
+}
+
+impl<E, S> fmt::Debug for Observers<E, S> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Observers")
+            .field("next_id", &self.next_id)
+            .field("registry", &format!("{:?}", self.registry.keys()))
+            .finish()
+    }
 }
 
 impl<E, S> Observers<E, S> {
@@ -25,7 +34,7 @@ impl<E, S> Observers<E, S> {
     pub fn new() -> Self {
         Observers {
             next_id: 0,
-            registry: collections::HashMap::new(),
+            registry: HashMap::new(),
         }
     }
 
