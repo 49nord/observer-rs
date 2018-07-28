@@ -1,4 +1,4 @@
-use std::rc;
+use std::{collections, rc};
 
 /// Observer reference collection
 ///
@@ -8,13 +8,25 @@ use std::rc;
 ///
 /// Internally, observers are kept using weak references, any observer that is only referenced
 /// by the collection will be freed if there are not other strong references.
-pub struct Observers<E, S>(Vec<rc::Weak<Observer<E, S>>>);
+///
+/// Observers are not guaranteed to be updated in the order they have been registered.
+// Note: We actually want to guarantee updates in-order, but cannot currently because `HashMap` is
+// used instead of `BTreeMap`.
+pub struct Observers<E, S> {
+    next_id: usize,
+    /// Note: Currently there is a `retain` implementation missing for `HashMap`, it is only
+    /// for this reason that a HashMap is used.
+    registry: collections::HashMap<usize, rc::Weak<Observer<E, S>>>,
+}
 
 impl<E, S> Observers<E, S> {
     /// Create new observer references collection instance.
     #[inline]
     pub fn new() -> Self {
-        Observers(Vec::new())
+        Observers {
+            next_id: 0,
+            registry: collections::HashMap::new(),
+        }
     }
 
     /// Notify all currently known observers about `event`.
@@ -24,7 +36,7 @@ impl<E, S> Observers<E, S> {
     #[inline]
     pub fn notify(&mut self, event: E, subject: &S) {
         // `retain` is used to clean up dead observers after trying to call them once.
-        self.0.retain(|obs_ref| {
+        self.registry.retain(|_id, obs_ref| {
             if let Some(obs) = obs_ref.upgrade() {
                 obs.update(&event, subject);
                 true
@@ -35,9 +47,14 @@ impl<E, S> Observers<E, S> {
     }
 
     /// Register an observer.
+    ///
+    /// Returns a unique ID for the observer that serves as a handle to remove it.
     #[inline]
-    pub fn register(&mut self, obs: rc::Weak<Observer<E, S>>) {
-        self.0.push(obs)
+    pub fn register(&mut self, obs: rc::Weak<Observer<E, S>>) -> usize {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.registry.insert(id, obs);
+        id
     }
 }
 
