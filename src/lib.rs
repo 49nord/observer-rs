@@ -56,6 +56,15 @@ impl<E, S> Observers<E, S> {
         self.registry.insert(id, obs);
         id
     }
+
+    /// Remove an observer from the collection.
+    ///
+    /// Removes the observer from the internal list of entries. Returns whether or not an entry was
+    /// removed.
+    #[inline]
+    pub fn unregister(&mut self, handle: usize) -> bool {
+        self.registry.remove(&handle).is_some()
+    }
 }
 
 /// Observer of a subject accepting events.
