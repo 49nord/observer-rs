@@ -1,105 +1,64 @@
-use std::ops::{Deref, DerefMut};
+use std::rc;
 
-#[cfg(test)]
-mod tests;
+/// Observer reference collection
+///
+/// Inteded to be used as an aid in implementing concrete subjects, `Observers` contains a
+/// collection of weakly referenced observers that accept events events of type `E` emitted by a
+/// subject of type `S`.
+///
+/// Internally, observers are kept using weak references, any observer that is only referenced
+/// by the collection will be freed if there are not other strong references.
+pub struct Observers<E, S>(Vec<rc::Weak<Observer<E, S>>>);
 
-// FIXME: should this be &mut V or &V? split into two traits or drop?
-trait Observer<V> {
-    fn update(&self, &mut V);
+impl<E, S> Observers<E, S> {
+    /// Create new observer references collection instance.
+    #[inline]
+    pub fn new() -> Self {
+        Observers(Vec::new())
+    }
+
+    /// Notify all currently known observers about `event`.
+    ///
+    /// During the fan-out of the event, all internal references of dead observers will be cleaned
+    /// up.
+    #[inline]
+    pub fn notify(&mut self, event: E, subject: &S) {
+        // `retain` is used to clean up dead observers after trying to call them once.
+        self.0.retain(|obs_ref| {
+            if let Some(obs) = obs_ref.upgrade() {
+                obs.update(&event, subject);
+                true
+            } else {
+                false
+            }
+        })
+    }
+
+    /// Register an observer.
+    #[inline]
+    pub fn register(&mut self, obs: rc::Weak<Observer<E, S>>) {
+        self.0.push(obs)
+    }
 }
 
-// // FIXME: is this a good idea?
-// impl<'a, V, T> Observer<V> for &'a T
-// where
-//     T: Observer<V>,
-// {
-//     fn update(&self, value: &mut V) {
-//         (**self).update(value)
-//     }
-// }
+/// Observer of a subject accepting events.
+///
+/// The observer expects to be updated whenever a subject of type `S` that the observer is
+/// registered to emits an event of type `E`.
+pub trait Observer<E, S> {
+    /// Receive an update.
+    ///
+    /// Receives an event of type `E` on the subject of type `S`.
+    #[inline]
+    fn update(&self, event: &E, subject: &S);
+}
 
-impl<V, F> Observer<V> for F
+impl<T, E, S> Observer<E, S> for Box<T>
 where
-    F: Fn(&mut V) -> (),
+    T: Observer<E, S>,
 {
-    fn update(&self, value: &mut V) {
-        // self(value)
-    }
-}
-
-struct Subject<V, O> {
-    observers: Vec<O>,
-    value: V,
-}
-
-impl<V, O> Subject<V, O>
-where
-    O: Observer<V>,
-{
-    fn notify(&mut self) {
-        for observer in &mut self.observers {
-            observer.update(&mut self.value);
-        }
-    }
-}
-
-struct SubjectGuard<'a, V, O>(&'a mut Subject<V, O>)
-where
-    V: 'a,
-    O: 'a + Observer<V>;
-
-impl<'a, V, O> Drop for SubjectGuard<'a, V, O>
-where
-    V: 'a,
-    O: 'a + Observer<V>,
-{
-    fn drop(&mut self) {
-        &self.0.notify();
-    }
-}
-
-impl<'a, V, O> Deref for SubjectGuard<'a, V, O>
-where
-    V: 'a,
-    O: 'a + Observer<V>,
-{
-    type Target = V;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0.value
-    }
-}
-
-impl<'a, V, O> DerefMut for SubjectGuard<'a, V, O>
-where
-    V: 'a,
-    O: 'a + Observer<V>,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0.value
-    }
-}
-
-impl<V, O> Subject<V, O>
-where
-    O: Observer<V>,
-{
-    fn new(value: V) -> Subject<V, O> {
-        Subject {
-            observers: Vec::new(),
-            value,
-        }
-    }
-
-    fn get_mut_notify<'a>(&'a mut self) -> SubjectGuard<'a, V, O> {
-        SubjectGuard(self)
-    }
-
-    fn into_inner(self) -> V {
-        self.value
-    }
-
-    fn register(&mut self, observer: O) {
-        self.observers.push(observer);
+    #[inline]
+    fn update(&self, event: &E, subject: &S) {
+        (&**self).update(event, subject)
     }
 }
