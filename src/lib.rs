@@ -1,3 +1,6 @@
+pub mod collections;
+pub mod subject;
+
 use std::{collections::HashMap, fmt, rc};
 
 /// Observer reference collection
