@@ -45,12 +45,14 @@ impl<E, S> Observers<E, S> {
             }
         })
     }
+}
 
+impl<E, S> ObserverRegistry<E, S> for Observers<E, S> {
     /// Register an observer.
     ///
     /// Returns a unique ID for the observer that serves as a handle to remove it.
     #[inline]
-    pub fn register(&mut self, obs: rc::Weak<Observer<E, S>>) -> usize {
+    fn register(&mut self, obs: rc::Weak<Observer<E, S>>) -> usize {
         let id = self.next_id;
         self.next_id += 1;
         self.registry.insert(id, obs);
@@ -62,9 +64,24 @@ impl<E, S> Observers<E, S> {
     /// Removes the observer from the internal list of entries. Returns whether or not an entry was
     /// removed.
     #[inline]
-    pub fn unregister(&mut self, handle: usize) -> bool {
+    fn unregister(&mut self, handle: usize) -> bool {
         self.registry.remove(&handle).is_some()
     }
+}
+
+pub trait ObserverRegistry<E, S> {
+    /// Register an observer.
+    ///
+    /// Returns a unique ID for the observer that serves as a handle to remove it.
+    #[inline]
+    fn register(&mut self, obs: rc::Weak<Observer<E, S>>) -> usize;
+
+    /// Remove an observer from the collection.
+    ///
+    /// Removes the observer from the internal list of entries. Returns whether or not an entry was
+    /// removed.
+    #[inline]
+    fn unregister(&mut self, handle: usize) -> bool;
 }
 
 /// Observer of a subject accepting events.
