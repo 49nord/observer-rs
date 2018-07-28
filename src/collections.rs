@@ -1,4 +1,6 @@
-use super::Observers;
+use std::rc;
+
+use super::{Observer, ObserverRegistry, Observers};
 
 #[derive(Debug)]
 pub enum Event<K> {
@@ -42,6 +44,18 @@ macro_rules! observable_list {
             pub fn clear(&mut self) {
                 self.inner.clear();
                 self.registry.notify(Event::Reset, &self.inner);
+            }
+        }
+
+        impl<T> ObserverRegistry<Event<usize>, $col> for $name<T> {
+            #[inline]
+            fn register(&mut self, obs: rc::Weak<Observer<Event<usize>, $col>>) -> usize {
+                self.registry.register(obs)
+            }
+
+            #[inline]
+            fn unregister(&mut self, handle: usize) -> bool {
+                self.registry.unregister(handle)
             }
         }
     };
